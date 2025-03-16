@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatbot Client</title>
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+  <style>
+    /* Global styles */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+    }
+    header {
+      width: 100%;
+      background: #202123;
+      color: white;
+      padding: 15px 20px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .logo-text {
+      font-family: 'Permanent Marker', cursive;
+      font-size: 2.5em;
+      background: linear-gradient(45deg, #ff0000, #ff8c00, #ffd700, #32cd32, #1e90ff, #9400d3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+      margin-right: 20px;
+      background-color: white;
+      padding: 5px 15px;
+      border-radius: 10px;
+    }   
+    main {
+      width: 100%;
+      max-width: 600px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin: 20px;
+      overflow: hidden;
+    }
+    .chat-container {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      background: #e5ddd5;
+    }
+    .message {
+      max-width: 80%;
+      padding: 10px 15px;
+      border-radius: 20px;
+      line-height: 1.4;
+      word-wrap: break-word;
+      margin: 10px 0;
+      display: inline-block;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: #dcf8c6;
+    }
+    .message.bot {
+      align-self: flex-start;
+      background: #fff;
+      border: 1px solid #ddd;
+    }
+    .input-area {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+    .input-area input[type="text"] {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      font-size: 16px;
+      outline: none;
+    }
+    .input-area button {
+      padding: 0 20px;
+      border: none;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #sendBtn {
+      background: #007bff;
+    }
+    #sendBtn:hover {
+      background: #0056b3;
+    }
+    #clearBtn {
+      background: #dc3545;
+    }
+    #clearBtn:hover {
+      background: #c82333;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="logo-text">Foo.cz</span>
+    <span>Chatbot Client</span>
+  </header>
+
+  <main>
+    <div class="chat-container" id="chatContainer">
+    </div>
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="Vaše zpráva..." autocomplete="off">
+      <button id="sendBtn">Odeslat</button>
+      <button id="clearBtn">Vymazat</button>
+    </div>
+  </main>
+
+  <script>
+    const chatContainer = document.getElementById('chatContainer');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    async function restartChat() {
+  try {
+    const response = await fetch('http://127.0.0.1:1122/restart', {
+      method: 'POST'
+    });
+    if (response.ok) {
+      chatContainer.innerHTML = '';
+      appendMessage("🤖 Dobrý den, jak Vám mohu pomoci?", 'bot');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+    window.addEventListener('load', restartChat);
+    clearBtn.addEventListener('click', restartChat);
+    sendBtn.addEventListener('click', sendMessage);
+    userInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    function appendMessage(message, sender) {
+      const msgDiv = document.createElement('div');
+      msgDiv.classList.add('message', sender);
+      msgDiv.textContent = message;
+      chatContainer.appendChild(msgDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+      appendMessage("👤 " + message, 'user');
+      userInput.value = "";
+
+      try {
+        const response = await fetch('http://127.0.0.1:1122//chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_input: message })
+        });
+
+        if (!response.ok) {
+          appendMessage("Error: " + response.statusText, 'bot');
+          return;
+        }
+
+        const contentType = response.headers.get('Content-Type') || "";
+        if (contentType.includes("text/plain")) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let done = false;
+          let fullText = "";
+          appendMessage("🤖 ", 'bot');
+          while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            const chunkValue = decoder.decode(value);
+            fullText += chunkValue;
+            updateLastBotMessage("🤖 " + fullText);
+          }
+        } else {
+          const data = await response.json();
+          appendMessage("🤖 " + data.response, 'bot');
+        }
+      } catch (error) {
+        appendMessage("Error: " + error.message, 'bot');
+      }
+    }
+
+    function updateLastBotMessage(message) {
+      const botMessages = chatContainer.getElementsByClassName('bot');
+      if (botMessages.length > 0) {
+        botMessages[botMessages.length - 1].textContent = message;
+      } else {
+        appendMessage(message, 'bot');
+      }
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  </script>
+</body>
+</html>
