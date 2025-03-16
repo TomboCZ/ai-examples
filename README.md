@@ -8,7 +8,7 @@ Modern AI integration course focused on practical implementation using both Open
 - git clone https://github.com/TomboCZ/ai-examples
 - python -m venv .venv
 - source .venv/bin/activate  # Mac/Linux
-- .\.venv\Scripts\activate   # Windows
+- .venv\Scripts\activate     # Windows
 
 ### Install Dependencies
 - pip install -r requirements.txt
