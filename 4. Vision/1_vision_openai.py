@@ -41,6 +41,11 @@ def solve_vision(ai_model, system_prompt, prompt, image_path):
     answer = response.choices[0].message.content
     return answer
 
+def get_file_path(filename):
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, filename)
+
 if __name__ == "__main__":
     SYSTEM_PROMPT = """
     You are a world-class film scene analyst and visual expert with decades of experience in cinematography and film history. 
@@ -60,7 +65,7 @@ if __name__ == "__main__":
     4. Carefully reconsider all the gathered information and, based on that, determine the title of the film.
     """
     
-    image_file = "test.png"
-    description = solve_vision(AI_MODEL, SYSTEM_PROMPT, PROMPT, image_file)
-    print("Popis obrázku:", description)
+    image_file = get_file_path("test-bar.png")
+    scene_analysis = solve_vision(AI_MODEL, SYSTEM_PROMPT, PROMPT, image_file)
+    print(scene_analysis)
 
