@@ -1,6 +1,12 @@
-import config
+"""
+Flask backend server for the e-shop chatbot.
+Provides REST API endpoints for chat functionality and bot management.
+"""
+
+from typing import Generator, Dict, Any
 from flask import Flask, request, jsonify, Response
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS
+from openai import OpenAIError
 from ai_core import prompts
 from ai_core.chatbot import Chatbot
 from ai_core.models import Model
@@ -22,30 +28,50 @@ def index():
     return "Flask Chatbot Server is running."
 
 @app.route('/chat', methods=['POST'])
-def chat():
+def chat() -> Response:
     """
-    Endpoint for handling chat messages.
-    Accepts a JSON payload with a 'user_input' field.
-    If streaming is enabled, returns a streaming response (text/plain).
-    Otherwise, returns a JSON response with the complete answer.
+    Handle chat messages from clients.
+    
+    Expected JSON payload: {"user_input": "string"}
+    Returns: 
+        - Streaming response (text/plain) if streaming is enabled
+        - JSON response {"response": "string"} otherwise
+        
+    Status codes:
+        200: Success
+        400: Invalid input
+        500: Server/API error
     """
-    data = request.get_json()
-    user_input = data.get("user_input", "")
-    if not user_input:
-        return jsonify({"error": "No user input provided"}), 400
+    try:
+        data = request.get_json()
+        if not isinstance(data, dict):
+            return jsonify({"error": "Invalid request format"}), 400
+            
+        user_input = data.get("user_input", "").strip()
+        if not user_input:
+            return jsonify({"error": "No user input provided"}), 400
 
-    if IS_OUTPUT_STREAMED:
-        def generate():
-            collected_tokens = ""
-            # Stream tokens from the chatbot
-            for token in chatbot.get_answer_streamed(user_input):
-                collected_tokens += token
-                yield token
-        # Return streaming response with plain text mimetype
-        return Response(generate(), mimetype='text/plain')
-    else:
-        ai_reply = chatbot.get_answer(user_input)
-        return jsonify({"response": ai_reply})
+        if IS_OUTPUT_STREAMED:
+            return Response(
+                generate_stream(user_input), 
+                mimetype='text/plain'
+            )
+        else:
+            ai_reply = chatbot.get_answer(user_input)
+            return jsonify({"response": ai_reply})
+            
+    except OpenAIError as e:
+        return jsonify({"error": f"AI service error: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+def generate_stream(user_input: str) -> Generator[str, None, None]:
+    """Generate streaming response for chat messages."""
+    try:
+        for token in chatbot.get_answer_streamed(user_input):
+            yield token
+    except Exception as e:
+        yield f"Error: {str(e)}"
 
 @app.route('/restart', methods=['POST'])
 def restart():

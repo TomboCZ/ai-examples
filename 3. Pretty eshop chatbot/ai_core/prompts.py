@@ -1,6 +1,13 @@
-GENERIC_SYSTEM_PROMPT = "Jsi nápomocný chatbot, který odpovídá jasně a stručně."
+"""
+System prompts for the chatbot application.
+Contains predefined prompts for different chatbot roles and contexts.
+"""
 
-ESHOP_CHATBOT_SYSTEM_PROMPT = f"""
+from typing import Final
+
+GENERIC_SYSTEM_PROMPT: Final[str] = "Jsi nápomocný chatbot, který odpovídá jasně a stručně."
+
+ESHOP_CHATBOT_SYSTEM_PROMPT = """
 Kdo jsi:
 Jsi chatbot pro eshop Foo.cz, profesionální podpora pro online prodej.
 

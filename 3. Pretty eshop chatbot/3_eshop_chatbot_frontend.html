@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chatbot Client</title>
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+  <meta name="description" content="Foo.cz chatbot client for customer support">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <style>
     /* Global styles */
     * {
@@ -111,6 +113,19 @@
     #clearBtn:hover {
       background: #c82333;
     }
+    .input-area button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    .message.loading::after {
+      content: '...';
+      animation: loading 1.5s infinite;
+    }
+    @keyframes loading {
+      0% { content: '.'; }
+      33% { content: '..'; }
+      66% { content: '...'; }
+    }
   </style>
 </head>
 <body>
@@ -124,9 +139,22 @@
     <div class="chat-container" id="chatContainer">
     </div>
     <div class="input-area">
-      <input type="text" id="userInput" placeholder="Vaše zpráva..." autocomplete="off">
-      <button id="sendBtn">Odeslat</button>
-      <button id="clearBtn">Vymazat</button>
+      <input 
+        type="text" 
+        id="userInput" 
+        aria-label="Chat message input"
+        placeholder="Vaše zpráva..." 
+        autocomplete="off">
+      <button 
+        id="sendBtn" 
+        aria-label="Send message">
+        Odeslat
+      </button>
+      <button 
+        id="clearBtn" 
+        aria-label="Clear chat">
+        Vymazat
+      </button>
     </div>
   </main>
 
@@ -136,9 +164,17 @@
     const sendBtn = document.getElementById('sendBtn');
     const clearBtn = document.getElementById('clearBtn');
 
+    const CONFIG = {
+      API_URL: 'http://127.0.0.1:1122',
+      ENDPOINTS: {
+          CHAT: '/chat',
+          RESTART: '/restart'
+      }
+    };
+
     async function restartChat() {
   try {
-    const response = await fetch('http://127.0.0.1:1122/restart', {
+    const response = await fetch(`${CONFIG.API_URL}${CONFIG.ENDPOINTS.RESTART}`, {
       method: 'POST'
     });
     if (response.ok) {
@@ -168,46 +204,61 @@
       chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    function sanitizeInput(input) {
+      const div = document.createElement('div');
+      div.textContent = input;
+      return div.innerHTML;
+    }
+
+    function handleError(error, context = 'Operation') {
+      console.error(`${context} failed:`, error);
+      appendMessage(`❌ Omlouváme se, došlo k chybě: ${error.message}`, 'bot');
+    }
+
     async function sendMessage() {
-      const message = userInput.value.trim();
-      if (!message) return;
-      appendMessage("👤 " + message, 'user');
-      userInput.value = "";
-
       try {
-        const response = await fetch('http://127.0.0.1:1122//chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ user_input: message })
-        });
+        const message = sanitizeInput(userInput.value.trim());
+        if (!message) return;
+        appendMessage("👤 " + message, 'user');
+        userInput.value = "";
 
-        if (!response.ok) {
-          appendMessage("Error: " + response.statusText, 'bot');
-          return;
-        }
+        try {
+          const response = await fetch(`${CONFIG.API_URL}${CONFIG.ENDPOINTS.CHAT}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_input: message })
+          });
 
-        const contentType = response.headers.get('Content-Type') || "";
-        if (contentType.includes("text/plain")) {
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let done = false;
-          let fullText = "";
-          appendMessage("🤖 ", 'bot');
-          while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            const chunkValue = decoder.decode(value);
-            fullText += chunkValue;
-            updateLastBotMessage("🤖 " + fullText);
+          if (!response.ok) {
+            appendMessage("Error: " + response.statusText, 'bot');
+            return;
           }
-        } else {
-          const data = await response.json();
-          appendMessage("🤖 " + data.response, 'bot');
+
+          const contentType = response.headers.get('Content-Type') || "";
+          if (contentType.includes("text/plain")) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let done = false;
+            let fullText = "";
+            appendMessage("🤖 ", 'bot');
+            while (!done) {
+              const { value, done: doneReading } = await reader.read();
+              done = doneReading;
+              const chunkValue = decoder.decode(value);
+              fullText += chunkValue;
+              updateLastBotMessage("🤖 " + fullText);
+            }
+          } else {
+            const data = await response.json();
+            appendMessage("🤖 " + data.response, 'bot');
+          }
+        } catch (error) {
+          appendMessage("Error: " + error.message, 'bot');
         }
       } catch (error) {
-        appendMessage("Error: " + error.message, 'bot');
+        handleError(error, 'Message sending');
       }
     }
 

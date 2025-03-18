@@ -7,12 +7,11 @@ class Chatbot:
     def __init__(self, model: Model, system_prompt: str = prompts.GENERIC_SYSTEM_PROMPT):
         """
         Initializes the Chatbot instance.
+        
         Args:
-            model (str): The name of the model to be used.
-            is_opensource (bool): Flag indicating if the model is open-source.
-            system_prompt (str, optional): The initial system prompt for the chatbot. Defaults to "You are a helpful assistant.".
-            api_key (str): The API key for accessing the OpenAI service.
-            base_url (str, optional): The base URL for the OpenAI service. Defaults to None.
+            model (Model): The model configuration object.
+            system_prompt (str, optional): The initial system prompt for the chatbot.
+                Defaults to GENERIC_SYSTEM_PROMPT.
         """
  
         self.model = model.exact_name
@@ -35,20 +34,31 @@ class Chatbot:
         Add the user's input to the conversation history, send a request to the AI model,
         and return the response.
         
-        :param user_input: User's input message.
-        :return: AI's response message.
+        Args:
+            user_input: User's input message.
+        Returns:
+            str: AI's response message.
+        Raises:
+            OpenAIError: If the API call fails
         """
+        if not user_input or not user_input.strip():
+            raise ValueError("User input cannot be empty")
+        
         self.messages.append({"role": "user", "content": user_input})
         
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=self.messages
-        )
-        
-        ai_reply = response.choices[0].message.content
-        self.messages.append({"role": "assistant", "content": ai_reply})
-        
-        return ai_reply
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.messages
+            )
+            
+            ai_reply = response.choices[0].message.content
+            self.messages.append({"role": "assistant", "content": ai_reply})
+            
+            return ai_reply
+        except Exception as e:
+            self.messages.pop()  # Remove the user message on failure
+            raise
     
     def get_answer_streamed(self, user_input: str):
         """

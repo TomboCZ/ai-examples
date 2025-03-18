@@ -20,7 +20,7 @@ def solve_any_problem(problem, ai_model):
     return answer
 
 if __name__ == "__main__":
-    problem = "How many letters 'r' are there in the word 'strawberry'"
+    problem = "How many letters 'r' are there in the word 'strawberry'?"
     print(problem)
            
     print("\nDeepSeek R1:")
